@@ -7,91 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        h1, h2 { font-family: 'Playfair Display', serif; }
-        .admin-panel {
-            position: fixed;
-            inset: 0;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            background: rgba(15, 23, 42, 0.7);
-            z-index: 50;
-        }
-        .admin-panel.visible {
-            display: flex;
-        }
-        .admin-panel-card {
-            width: min(95vw, 480px);
-            background: white;
-            border-radius: 1.25rem;
-            padding: 1.5rem;
-            box-shadow: 0 25px 60px rgba(15, 23, 42, 0.2);
-            position: relative;
-            max-height: 90vh;
-            overflow: hidden;
-        }
-        .admin-panel-card h3 {
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
-        #admin-list {
-            max-height: 56vh;
-            overflow-y: auto;
-            padding-right: 0.35rem;
-        }
-        #admin-list::-webkit-scrollbar {
-            width: 8px;
-        }
-        #admin-list::-webkit-scrollbar-thumb {
-            background: rgba(110, 110, 110, 0.35);
-            border-radius: 9999px;
-        }
-        .admin-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .admin-row:last-child {
-            border-bottom: none;
-        }
-        .admin-toggle {
-            padding: 0.45rem 0.85rem;
-            border-radius: 9999px;
-            border: 1px solid transparent;
-            font-size: 0.75rem;
-            font-weight: 700;
-            cursor: pointer;
-        }
-        .admin-toggle.available {
-            background: #111827;
-            color: #ffffff;
-        }
-        .admin-toggle.unavailable {
-            background: #f8fafc;
-            color: #dc2626;
-            border-color: #fca5a5;
-        }
-        .admin-close {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: transparent;
-            border: none;
-            font-size: 1rem;
-            cursor: pointer;
-            color: #6b7280;
-        }
-        @media (hover: none) and (pointer: coarse) {
-            .disable-mobile-hover:hover {
-                transform: none !important;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-50 text-gray-900">
 
@@ -114,14 +30,14 @@
         </div>
         <p>&copy; 2025 Mundo encanto y sorpresa. Todos los derechos reservados.</p>
         <!-- Crédito de diseño - NO MODIFICAR -->
-        <p class="text-xs text-gray-400 mt-2" style="opacity: 0.85;">Diseño web por Bridgette Toro Quiceno</p>
+        <p class="text-xs text-gray-400 mt-2 credit">Diseño web por Bridgette Toro Quiceno</p>
     </footer>
 
     <div id="admin-panel" class="admin-panel" aria-hidden="true">
         <div class="admin-panel-card">
             <button id="admin-close" class="admin-close" aria-label="Cerrar panel de administración">✕</button>
             <h3>Panel de administración</h3>
-            <p class="text-sm text-gray-500 mb-4">Cambia el estado disponible/agotado desde aquí. Solo funciona si eres administrador.</p>
+            <p class="text-sm text-gray-500 mb-4">Cambia precios y disponibilidad aquí. Solo para administrador.</p>
             <div id="admin-list"></div>
             <button id="admin-logout" class="mt-6 w-full px-4 py-3 rounded-full bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 transition-colors duration-200">Salir del modo admin</button>
         </div>
@@ -132,8 +48,10 @@
         const WHATSAPP_NUM = "573166994301"; 
         const ADMIN_PASSWORD = "Joyeria2026";
         const STORAGE_KEY = "joyeria_disponibilidad";
+        const STORAGE_PRICES_KEY = "joyeria_precios";
         let adminMode = false;
         const disponibilidadGuardada = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        const preciosGuardados = JSON.parse(localStorage.getItem(STORAGE_PRICES_KEY) || "{}");
 
         function obtenerDisponibilidad(joya) {
             if (disponibilidadGuardada.hasOwnProperty(joya.id)) {
@@ -142,8 +60,32 @@
             return joya.disponible;
         }
 
+        function obtenerPrecio(joya) {
+            if (preciosGuardados.hasOwnProperty(joya.id)) {
+                return preciosGuardados[joya.id];
+            }
+            return joya.precio;
+        }
+
         function guardarDisponibilidad() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(disponibilidadGuardada));
+        }
+
+        function guardarPrecios() {
+            localStorage.setItem(STORAGE_PRICES_KEY, JSON.stringify(preciosGuardados));
+        }
+
+        function actualizarPrecio(id, nuevoPrecio) {
+            const idNum = Number(id);
+            const precio = parseInt(nuevoPrecio);
+            if (isNaN(precio) || precio < 0) {
+                alert("Por favor ingresa un precio válido.");
+                return;
+            }
+            preciosGuardados[idNum] = precio;
+            guardarPrecios();
+            reloadProductos();
+            renderAdminPanel();
         }
 
         function toggleDisponibilidad(id) {
@@ -192,18 +134,30 @@
             list.innerHTML = "";
             joyas.forEach(joya => {
                 const disponible = obtenerDisponibilidad(joya);
+                const precio = obtenerPrecio(joya);
                 const row = document.createElement("div");
                 row.className = "admin-row";
                 row.innerHTML = `
-                    <span class="text-sm text-gray-700">${joya.nombre}</span>
+                    <div class="admin-row-info">
+                        <span class="text-sm text-gray-700 block mb-2">${joya.nombre}</span>
+                        <input type="number" class="precio-input" data-id="${joya.id}" value="${precio}">
+                    </div>
                     <button class="admin-toggle ${disponible ? 'available' : 'unavailable'}" data-id="${joya.id}">
-                        ${disponible ? 'Marcar agotado' : 'Marcar disponible'}
+                        ${disponible ? 'Agotado' : 'Disponible'}
                     </button>
                 `;
                 list.appendChild(row);
             });
             list.querySelectorAll(".admin-toggle").forEach(button => {
                 button.addEventListener("click", () => toggleDisponibilidad(button.dataset.id));
+            });
+            list.querySelectorAll(".precio-input").forEach(input => {
+                input.addEventListener("blur", () => actualizarPrecio(input.dataset.id, input.value));
+                input.addEventListener("keypress", (e) => {
+                    if (e.key === "Enter") {
+                        actualizarPrecio(input.dataset.id, input.value);
+                    }
+                });
             });
         }
 
@@ -262,15 +216,15 @@
                 precio: 20000,
                 disponible: true,
                 imagen: "imagenes/Anillo_nuevo_milenio.jpeg",
-                descripcion: "Diseño delicado con detalles en plata esterlina."
+                descripcion: "Un toque sofisticado para cualquier look, con un diseño que combina modernidad y elegancia."
           },
           {
                 id: 8,
-                nombre: "Anillo Fenix",
+                nombre: "Anillo Fénix",
                 precio: 10000,
                 disponible: true,
                 imagen: "imagenes/Anillo_fenix.jpeg",
-                descripcion: "Pieza elegante con acabado en rodio."
+                descripcion: "Una joya sofisticada, de brillo eterno, diseñada para destacar con sutileza y elegancia en cada ocasión."
           },
           {
                 id: 9,
@@ -278,7 +232,7 @@
                 precio: 20000,
                 disponible: true,
                 imagen: "imagenes/Anillo_mar_ de_plata.jpeg",
-                descripcion: "Diseño romántico con detalles en oro rosa."
+                descripcion: "Una joya minimalista y vanguardista con la durabilidad inigualable del rodio."
           },
           {
                 id: 10,
@@ -286,7 +240,7 @@
                 precio: 15000,
                 disponible: true,
                 imagen: "imagenes/Topitos_amazonas.jpeg",
-                descripcion: "Pieza majestuosa con incrustaciones de piedras preciosas."
+                descripcion: "Una joya que equilibra perfectamente la delicadeza de la naturaleza con el refinamiento de la joyería contemporánea."
           },
           {
                 id: 11,
@@ -294,39 +248,127 @@
                 precio: 15000,
                 disponible: true,
                 imagen: "imagenes/Cadena_silver_helix.jpeg",
-                descripcion: "Diseño delicado con detalles en plata esterlina."
+                descripcion: "Una joya clásica y versátil con acabo de lujo resistente al paso del tiempo."
           },
           {
                 id: 12,
-                nombre: "Cadena Neptuno",
+                nombre: "Cadena Aura Dorada",
                 precio: 15000,
-                disponible: true,
-                imagen: "imagenes/Cadena_neptuno.jpeg",
-                descripcion: "Pieza elegante con acabado en rodio."
+                disponible: false,
+                imagen: "imagenes/Cadena_aura_dorada.jpeg",
+                descripcion: "Una joya clásica y versátil con acabo de lujo resistente al paso del tiempo."
           },
           {
                 id: 13,
-                nombre: "Cadena Destellos del Alma",
-                precio: 15000,
+                nombre: "Cadena Neptuno",
+                precio: 25000,
                 disponible: true,
-                imagen: "imagenes/Cadena_destellos_del_alma.jpeg",
-                descripcion: "Combina la luz de la estrella con el sentimiento de los corazones."
+                imagen: "imagenes/Cadena_neptuno.jpeg",
+                descripcion: "El complemento perfecto para quienes buscan un lujo discreto."
           },
           {
                 id: 14,
+                nombre: "Cadena Destellos del Alma",
+                precio: 35000,
+                disponible: true,
+                imagen: "imagenes/Cadena_destellos_del_alma.jpeg",
+                descripcion: "Acabado de lujo que aportan un brillo estelar y delicado."
+          },
+          {
+                id: 15,
                 nombre: "Cadena Trebol De Versalles",
                 precio: 35000,
                 disponible: false,
                 imagen: "imagenes/Cadena_trebol_de_versalles.jpeg",
-                descripcion: "Diseño romántico con detalles en oro rosa."
+                descripcion: "Una joya de distinción clasica con un brillo exepcional que te hará resaltar."
           },
           {
-                id: 15,
+                id: 16,
                 nombre: "Cadena Cascada Victoria",
                 precio: 35000,
                 disponible: true,
                 imagen: "imagenes/Cadena_cascada_victoria.jpeg",
-                descripcion: "Pieza majestuosa con incrustaciones de piedras preciosas."
+                descripcion: "Un accesorio refinado ideal para ocasiones especiales, diseñado para captar la luz y aportar un toque de exclusividad y frescura."
+          },
+          {
+                id: 17,
+                nombre: "Topitos Monarca",
+                precio: 15000,
+                disponible: true,
+                imagen: "imagenes/Topitos_monarca.jpeg",
+                descripcion: "El accesorio ideal para quienes buscan una distinción sutil y de alta calidad para su estilo diario."
+          },
+          {
+                id: 18,
+                nombre: "Topitos Gala",
+                precio: 12000,
+                disponible: true,
+                imagen: "imagenes/Topitos_gala.jpeg",
+                descripcion: "Un básico imprescindible en cualquier joyero que aporta un punto de claridad y elegancia discreta a cualquier presencia."
+          },
+          {
+                id: 19,
+                nombre: "Topitos Hoja De Cristal",
+                precio: 15000,
+                disponible: true,
+                imagen: "imagenes/Topitos_hoja_de_cristal.jpeg",
+                descripcion: "Un diseño que rinde homenaje a la perfección de la naturaleza, capturando la silueta de una hoja con una simetría impecable y un aire de frescura sofisticada."
+          },
+          {
+                id: 20,
+                nombre: "Topitos Aurora De Perlas",
+                precio: 22000,
+                disponible: true,
+                imagen: "imagenes/Aurora_de_perlas.jpeg",
+                descripcion: "Una reinterpretación moderna de la joyería clásica, que combina la majestuosidad de las perlas con un diseño de argolla abierta de gran distinción."
+          },
+          {
+                id: 21,
+                nombre: "Topitos Eclipse Dorado",
+                precio: 22000,
+                disponible: true,
+                imagen: "imagenes/Topitos_eclipse_dorado.jpeg",
+                descripcion: "Un accesorio con volumen y carácter, ideal para quienes buscan destacar con una joya moderna y atemporal."
+          },
+          {
+                id: 22,
+                nombre: "Topitos Marea Blanca",
+                precio: 22000,
+                disponible: true,
+                imagen: "imagenes/Topitos_marea_blanca.jpeg",
+                descripcion: "Un accesorio de distinción ideal para elevar cualquier atuendo con una elegancia minimalista y contemporánea."
+          },
+          {
+                id: 23,
+                nombre: "Topitos Atenea",
+                precio: 10000,
+                disponible: true,
+                imagen: "imagenes/Topitos_atenea.jpeg",
+                descripcion: "Un accesorio versátil que proyecta una imagen de elegancia moderna y audaz, ideal para elevar cualquier estilo personal."
+          },
+          {
+                id: 24,
+                nombre: "Topitos Flor De Loto",
+                precio: 20000,
+                disponible: true,
+                imagen: "imagenes/Topitos_flor_de_loto.jpeg",
+                descripcion: "Una pieza versátil y femenina, ideal para aportar un toque de distinción y luminosidad a cualquier ocasión."
+          },
+          {
+                id: 25,
+                nombre: "Topitos Eclipse de Nácar",
+                precio: 22000,
+                disponible: true,
+                imagen: "imagenes/Topitos_eclipse_de_nacar.jpeg",
+                descripcion: "Un diseño moderno y asimétrico que combina la delicadeza de las perlas con el brillo geométrico de los cristales."
+          },
+          {
+                id: 26,
+                nombre: "Topitos Suspiro De Perla",
+                precio: 20000,
+                disponible: true,
+                imagen: "imagenes/Topitos_suspiro_de_perla.jpeg",
+                descripcion: "Una joya femenina y refinada, ideal para iluminar el rostro con un toque de lujo discreto en cualquier ocasión especial."
           }
         ];
 
@@ -336,11 +378,12 @@
         function cargarProductos() {
             joyas.forEach(joya => {
                 const disponible = obtenerDisponibilidad(joya);
+                const precio = obtenerPrecio(joya);
                 const card = document.createElement('div');
                 card.className = "bg-white overflow-hidden shadow-sm hover:shadow-xl transition-shadow duration-300 border border-gray-100 flex flex-col rounded-2xl";
                 
               card.innerHTML = `
-      <div class="relative" style="overflow: visible;"> <img src="${joya.imagen}" 
+      <div class="relative imagen-container"> <img src="${joya.imagen}" 
                alt="${joya.nombre}" 
                class="w-full h-72 object-cover transition-transform duration-500 ease-in-out disable-mobile-hover ${disponible ? 'hover:scale-150 hover:z-50 hover:relative' : ''} ${!disponible ? 'grayscale opacity-50' : ''}">
           ${!disponible ? '<span class="absolute top-2 right-2 bg-black text-white px-3 py-1 text-xs uppercase">Agotado</span>' : ''}
@@ -349,9 +392,9 @@
           <h2 class="text-xl mb-2">${joya.nombre}</h2>
           <p class="text-gray-500 text-sm mb-4 flex-grow">${joya.descripcion}</p>
           <div class="flex justify-between items-center mt-auto">
-              <span class="text-lg font-semibold">$${joya.precio.toLocaleString()}</span>
+              <span class="text-lg font-semibold">$${precio.toLocaleString()}</span>
               <button 
-                  onclick="pedirWhatsApp('${joya.nombre}', ${joya.precio})"
+                  onclick="pedirWhatsApp('${joya.nombre}', ${precio})"
                   ${!disponible ? 'disabled' : ''}
                   class="px-6 py-3 rounded-lg font-medium tracking-widest text-sm ${disponible ? 'bg-black text-white shadow-md hover:shadow-xl hover:bg-gray-900 hover:scale-105 transform' : 'bg-gray-200 text-gray-400 cursor-not-allowed'} transition-all duration-300">
                   ${disponible ? 'Consultar' : 'Sin Stock'}
